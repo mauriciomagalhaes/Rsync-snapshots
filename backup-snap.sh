@@ -6,19 +6,30 @@
 # 1 - ssh-keygen -t rsa -f ~/.ssh/id_rsa
 # 2 - cat ~/.ssh/id_rsa.pub | ssh root@maquina_remota 'cat - >> ~/.ssh/authorized_keys'
 # 
+# set -e
+# set -x
+# set -u
 #
-set -e
-set -x
-set -u
-
+JQ=$(which jq)
+DU=$(which du)
+#
+NAMEPREFIX="BACKUP"
 TODAY=$(date '+%d/%m/%Y - %H:%M:%S')
 DATE=$(date '+D%Y-%m-%dT%H_%M_%S')
-DIR_BACKUP="root@192.168.122.6:/mnt/FOTOS/FOTOS2/FOTOS DRONE"       # Diretorio a ser bacapeado
-DIR_DESTINATION=/mnt/DISCO-BACKUP/BACKUP       # Backup de Destino
-LAST_BACKUP=/mnt/DISCO-BACKUP/BACKUP/last                           # link simbolico
-FILTER_RANSOMWARES="/opt/scripts/Rsync-snapshots"                   # Filtro de arquivos que não serão copiados
-QTD_DIA="+30"                                                       # +X - Acima de X dias / -X Abaixo de X Dias
-JQ=$(which jq)
+#DIR_BACKUP="root@192.168.122.6:/mnt/FOTOS/FOTOS2/FOTOS DRONE"        # Diretorio a ser bacapeado
+DIR_BACKUP="/home/mauricio/FOTOS"                                     # Diretorio a ser bacapeado
+DIR_DESTINATION="/home/mauricio/BACKUP"                               # Backup de Destino
+LAST_BACKUP="$DIR_DESTINATION/last"                                   # link simbolico
+#FILTER_RANSOMWARES="/opt/scripts/Rsync-snapshots"
+FILTER_RANSOMWARES="/home/mauricio"                                   # Filtro de arquivos que não serão copiados
+RETENCAO="+30"                                                        # +X - Acima de X dias / -X Abaixo de X Dias
+#
+# Remover Backups Antigos de Acordo com a quantida dias de Retenção, Ajustar na variavel RETENCAO
+#
+REMOVER=$(find $DIR_DESTINATION -maxdepth 1 -mtime $RETENCAO -name 'CADU-*')
+for i in $REMOVER; do
+       rm -Rf $i
+done
 #
 while true; do
     if curl --output /dev/null --silent --head --fail https://fsrm.experiant.ca/api/v1/combined; then
@@ -26,65 +37,50 @@ while true; do
     fi
 done
 #
-# Se quiser remover os arquivos thumbs gerados pelo Windows.
+# Remover os arquivos thumbs gerados pelo Windows.
 # echo "- Thumbs\.db" >> rans.lst
 #
 $JQ -r .filters[] $FILTER_RANSOMWARES/rans.json > $FILTER_RANSOMWARES/rans.lst
 #
 sed -i 's/\./\\./g; s/\[/\\[/g; s/\]/\\]/g; s/\@/\\@/g; s/\$/\\$/g; s/\ /\\ /g; s/\!/\\!/g; s/^/- /g' $FILTER_RANSOMWARES/rans.lst
 #
-rsync -avPps --filter="merge $FILTER_RANSOMWARES/rans.lst" --link-dest=${LAST_BACKUP} "$DIR_BACKUP" $DIR_DESTINATION/CADU-FOTOS2-${DATE} 
+rsync -avPps --log-file=$DIR_DESTINATION/rsync.log --filter="merge $FILTER_RANSOMWARES/rans.lst" --link-dest=${LAST_BACKUP} "$DIR_BACKUP" $DIR_DESTINATION/$NAMEPREFIX-${DATE} 
 #
 unlink ${LAST_BACKUP}
 #
-ln -s $DIR_DESTINATION/CADU-FOTOS2-${DATE}  ${LAST_BACKUP}
+ln -s $DIR_DESTINATION/$NAMEPREFIX-${DATE}  ${LAST_BACKUP}
 #
-# Remover Backups Antigos de Acordo com a quantida de dias, Ajustar na variavel QTD_DIA
-#REMOVER=$(find $DIR_DESTINATION -maxdepth 1 -mtime $QTD_DIA -name 'CADU-*')
-#for i in $REMOVER; do
-#       rm -Rf $i
-#done
-
-#SendTelegram(){
-#        API_TOKEN=""
-#        #ID=""
-#        ID=""
-#        LOG="/var/log/telegram.log"
-#        HORA=$(echo $BACKUP_NAME | cut -c 19-20)
-#        HEADER=">> Backup MITRA $HORA"h" 💾 <</n"
-#        ListSMB=$(ls -lh "$REMOTE_SMB/$BACKUP_DATE_DIR" | grep $HORA":" | awk '{printf "%1s %s\n", $5," "$9}')
-#        if [ -z "$ListSMB" ]; then
-#                MSGSMB="Arquivo não encontrado ❌"
-#        else
-#                MSGSMB="  ✅ "
-#        fi
-#        MESSAGE="$HEADER/nARQUIVO = $ListSMB $MSGSMB"
-#        MESSAGE=`echo $MESSAGE | sed 's/\/n/%0A/g'`
-#        URL="https://api.telegram.org/bot${API_TOKEN}/sendMessage?chat_id=${ID}&text=$MESSAGE"
-#        COUNT=1
+$DU -sh --exclude=last --exclude=*.log $DIR_DESTINATION/* > $DIR_DESTINATION/backup.log
+mapfile -t REGISTROS < $DIR_DESTINATION/backup.log
 #
-#while [ $COUNT -le 20 ]; do
-#   echo "$(date +%d/%m/%Y\ %H:%M:%S) - Start message send (attempt $COUNT) ..." >> $LOG
-#   #echo "$(date +%d/%m/%Y\ %H:%M:%S) - $MESSAGELOG" >> $LOG
-#   #/usr/bin/curl -s "$URL" > /dev/null
-#   /usr/bin/curl -s "$URL"
-#   RET=$?
+for i in "${REGISTROS[@]}"; do
+      d=$(echo $i | awk '{print $2}')
+      if [ $d == $DIR_DESTINATION/$NAMEPREFIX-${DATE} ]; then
+        INCREMENTAL=$(echo $i | awk '{print $1}')
+      fi
+done
 #
-#   if [ $RET -eq 0 ]; then
-#     echo "$(date +%d/%m/%Y\ %H:%M:%S) - Attempt $COUNT executed successfully!" >> $LOG
-#     exit 0
-#   else
-#     echo "$(date +%d/%m/%Y\ %H:%M:%S) - Attempt $COUNT failed!" >> $LOG
-#     echo "$(date +%d/%m/%Y\ %H:%M:%S) - Waiting 30 seconds before retry ..." >> $LOG
-#     sleep 30
-#     (( COUNT++ ))
-#   fi
-#done
-#}
-
-
-
-echo "Backup feito com sucesso em ${DIR_DESTINATION} no dia ${TODAY}".
-
+FINAL=$(date '+%d/%m/%Y - %H:%M:%S')
+TAMREAL=$(du -sh $DIR_DESTINATION/$NAMEPREFIX-${DATE} | awk '{print $1}')
+TAMTOTAL=$(du -sh $DIR_DESTINATION | awk '{print $1}')
+#
+echo "Backup realizado com sucesso!"
+echo "Início:       ${TODAY}"
+echo "Término:      ${FINAL}"
+echo "Total Real:   ${TAMREAL}"                                                           # Tamanho Real da Origem
+echo "Incremental   ${INCREMENTAL}        $DIR_DESTINATION/$NAMEPREFIX-${DATE}"           # Tamanho da último Backup Incremental     
+echo "Total Disco:  ${TAMTOTAL}     $DIR_DESTINATION"                                     # Tamanho do Backup armazenado no disco local
+#
+SendTelegram(){
+    API_TOKEN=""
+    ID=""
+    HEADER=">> Backup Rsync $FINAL 💾 <</n"
+    MESSAGE="$HEADER/n Inicio: ${TODAY}/n Término: ${FINAL}/n Total Real: ${TAMREAL}/n Incremental: ${INCREMENTAL}/n Total Disco: ${TAMTOTAL}/n"
+    MESSAGE=`echo $MESSAGE | sed 's/\/n/%0A/g'`
+    URL="https://api.telegram.org/bot${API_TOKEN}/sendMessage?chat_id=${ID}&text=$MESSAGE"
+    curl -s "$URL" > /dev/null
+}
+#
+SendTelegram
+#
 exit
-
