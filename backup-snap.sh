@@ -72,13 +72,16 @@ echo "Incremental   ${INCREMENTAL}        $DIR_DESTINATION/$NAMEPREFIX-${DATE}" 
 echo "Total Disco:  ${TAMTOTAL}     $DIR_DESTINATION"                                     # Tamanho do Backup armazenado no disco local
 #
 SendTelegram(){
-    API_TOKEN=""
-    ID=""
+    #API_TOKEN=""
+    #ID1=""
+    #ID2=""
     HEADER=">> Backup Rsync $FINAL 💾 <</n"
-    MESSAGE="$HEADER/n Inicio: ${TODAY}/n Término: ${FINAL}/n Total Real: ${TAMREAL}/n Incremental: ${INCREMENTAL}/n Total Disco: ${TAMTOTAL}/n"
+    MESSAGE="$HEADER/n ▫️ Inicio: ${TODAY}/n ▫️ Término: ${FINAL}/n ▫️ Total Real: ${TAMREAL}/n ▫️ Incremental: ${INCREMENTAL}/n ▫️ Total Disco: ${TAMTOTAL}/n"
     MESSAGE=`echo $MESSAGE | sed 's/\/n/%0A/g'`
-    URL="https://api.telegram.org/bot${API_TOKEN}/sendMessage?chat_id=${ID}&text=$MESSAGE"
-    curl -s "$URL" > /dev/null
+    URL1="https://api.telegram.org/bot${API_TOKEN}/sendMessage?chat_id=${ID1}&text=$MESSAGE"
+    URL2="https://api.telegram.org/bot${API_TOKEN}/sendMessage?chat_id=${ID2}&text=$MESSAGE"
+    curl -s "$URL1" > /dev/null
+    #curl -s "$URL2" > /dev/null
 }
 #
 SendTelegram
