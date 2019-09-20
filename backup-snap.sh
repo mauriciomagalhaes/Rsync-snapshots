@@ -67,9 +67,9 @@ TAMTOTAL=$(du -sh $DIR_DESTINATION | awk '{print $1}')
 echo "Backup realizado com sucesso!"
 echo "Início:       ${TODAY}"
 echo "Término:      ${FINAL}"
-echo "Total Real:   ${TAMREAL}"                                                           # Tamanho Real da Origem
-echo "Incremental   ${INCREMENTAL}        $DIR_DESTINATION/$NAMEPREFIX-${DATE}"           # Tamanho da último Backup Incremental     
-echo "Total Disco:  ${TAMTOTAL}     $DIR_DESTINATION"                                     # Tamanho do Backup armazenado no disco local
+echo "Total Real:   ${TAMREAL}"                                            # Tamanho Real da Origem
+echo "Incremental   ${INCREMENTAL}  $DIR_DESTINATION/$NAMEPREFIX-${DATE}"  # Tamanho da último Backup Incremental     
+echo "Total Disco:  ${TAMTOTAL}     $DIR_DESTINATION"                      # Tamanho do Backup armazenado no disco local
 #
 SendTelegram(){
     #API_TOKEN=""
